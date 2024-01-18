@@ -9,7 +9,6 @@ edition = "2021"
 anyhow = "1"
 thiserror = "1"
 boring = { version = "4.2.0" }
-coarsetime = "0.1.33"
 ct-codecs = "1.1.1"
 superboring = { version = "0.1.2", optional = true }
 serde = { version = "1", features = ["derive"] }

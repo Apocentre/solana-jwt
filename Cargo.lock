@@ -146,18 +146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "coarsetime"
-version = "0.1.33"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71367d3385c716342014ad17e3d19f7788ae514885a1f4c24f500260fb365e1a"
-dependencies = [
- "libc",
- "once_cell",
- "wasi",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -351,20 +339,6 @@ name = "libm"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
-
-[[package]]
-name = "light-rsa"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "boring",
- "coarsetime",
- "ct-codecs",
- "serde",
- "serde_json",
- "superboring",
- "thiserror",
-]
 
 [[package]]
 name = "log"
@@ -663,6 +637,19 @@ name = "smallvec"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2593d31f82ead8df961d8bd23a64c2ccf2eb5dd34b0a34bfb4dd54011c72009e"
+
+[[package]]
+name = "solana-jwt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "boring",
+ "ct-codecs",
+ "serde",
+ "serde_json",
+ "superboring",
+ "thiserror",
+]
 
 [[package]]
 name = "spin"

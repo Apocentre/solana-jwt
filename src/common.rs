@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use coarsetime::{Duration, UnixTimeStamp};
 use ct_codecs::{Base64UrlSafeNoPadding, Decoder, Encoder, Hex};
 
 use crate::{claims::DEFAULT_TIME_TOLERANCE_SECS, error::*};
@@ -16,7 +15,7 @@ pub struct VerificationOptions {
     /// For a given user, the time of the last successful authentication can be
     /// kept in a database, and `reject_before` can then be used to reject
     /// older (replayed) tokens.
-    pub reject_before: Option<UnixTimeStamp>,
+    pub reject_before: Option<i64>,
 
     /// Accept tokens created with a date in the future
     pub accept_future: bool,
@@ -40,10 +39,10 @@ pub struct VerificationOptions {
     pub allowed_audiences: Option<HashSet<String>>,
 
     /// How much clock drift to tolerate when verifying token timestamps
-    pub time_tolerance: Option<Duration>,
+    pub time_tolerance: Option<i64>,
 
     /// Reject tokens created more than `max_validity` ago
-    pub max_validity: Option<Duration>,
+    pub max_validity: Option<i64>,
 
     /// Maximum token length to accept
     pub max_token_length: Option<usize>,
@@ -51,8 +50,8 @@ pub struct VerificationOptions {
     /// Maximum unsafe, untrusted, unverified JWT header length to accept
     pub max_header_length: Option<usize>,
 
-    /// Change the current time. Only used for testing.
-    pub artificial_time: Option<UnixTimeStamp>,
+    /// This will be now timestamp but injected by the client
+    pub injected_time: Option<i64>,
 }
 
 impl Default for VerificationOptions {
@@ -66,11 +65,11 @@ impl Default for VerificationOptions {
             required_nonce: None,
             allowed_issuers: None,
             allowed_audiences: None,
-            time_tolerance: Some(Duration::from_secs(DEFAULT_TIME_TOLERANCE_SECS)),
+            time_tolerance: Some(DEFAULT_TIME_TOLERANCE_SECS),
             max_validity: None,
             max_token_length: Some(DEFAULT_MAX_TOKEN_LENGTH),
             max_header_length: None,
-            artificial_time: None,
+            injected_time: None,
         }
     }
 }

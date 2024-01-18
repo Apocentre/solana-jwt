@@ -30,10 +30,12 @@ pub trait RSAPublicKeyLike {
 					let mut verifier = Verifier::new(digest, &pkey)?;
 					verifier.set_rsa_padding(self.padding_scheme())?;
 					verifier.update(authenticated.as_bytes())?;
-					if !(verifier.verify(signature).map_err(|_| JWTError::InvalidSignature)?) {
+					
+          if !(verifier.verify(signature).map_err(|_| JWTError::InvalidSignature)?) {
 						bail!(JWTError::InvalidSignature);
 					}
-					Ok(())
+					
+          Ok(())
 				},
       )
   }

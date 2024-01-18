@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 use std::convert::TryInto;
 
-use coarsetime::{Clock, Duration, UnixTimeStamp};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::common::VerificationOptions;
 use crate::error::*;
 use crate::serde_additions;
 
-pub const DEFAULT_TIME_TOLERANCE_SECS: u64 = 900;
+pub const DEFAULT_TIME_TOLERANCE_SECS: i64 = 900;
 
 /// Type representing the fact that no application-defined claims is necessary.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
@@ -112,27 +111,24 @@ pub struct JWTClaims<CustomClaims> {
 				rename = "iat",
 				default,
 				skip_serializing_if = "Option::is_none",
-				with = "self::serde_additions::unix_timestamp"
 		)]
-		pub issued_at: Option<UnixTimeStamp>,
+		pub issued_at: Option<i64>,
 
 		/// Time the claims expire at
 		#[serde(
 				rename = "exp",
 				default,
 				skip_serializing_if = "Option::is_none",
-				with = "self::serde_additions::unix_timestamp"
 		)]
-		pub expires_at: Option<UnixTimeStamp>,
+		pub expires_at: Option<i64>,
 
 		/// Time the claims will be invalid until
 		#[serde(
 				rename = "nbf",
 				default,
 				skip_serializing_if = "Option::is_none",
-				with = "self::serde_additions::unix_timestamp"
 		)]
-		pub invalid_before: Option<UnixTimeStamp>,
+		pub invalid_before: Option<i64>,
 
 		/// Issuer - This can be set to anything application-specific
 		#[serde(rename = "iss", default, skip_serializing_if = "Option::is_none")]
@@ -173,9 +169,7 @@ pub struct JWTClaims<CustomClaims> {
 
 impl<CustomClaims> JWTClaims<CustomClaims> {
 				pub(crate) fn validate(&self, options: &VerificationOptions) -> Result<(), Error> {
-								let now = options
-								.artificial_time
-								.unwrap_or_else(Clock::now_since_epoch);
+								let now = options.injected_time.expect("injected time");
 								let time_tolerance = options.time_tolerance.unwrap_or_default();
 
 								if let Some(reject_before) = options.reject_before {
@@ -245,7 +239,7 @@ impl<CustomClaims> JWTClaims<CustomClaims> {
 				}
 
 				/// Set the token as not being valid until `unix_timestamp`
-				pub fn invalid_before(mut self, unix_timestamp: UnixTimeStamp) -> Self {
+				pub fn invalid_before(mut self, unix_timestamp: i64) -> Self {
 								self.invalid_before = Some(unix_timestamp);
 								self
 				}
@@ -291,124 +285,3 @@ impl<CustomClaims> JWTClaims<CustomClaims> {
 }
 
 pub struct Claims;
-
-impl Claims {
-				/// Create a new set of claims, without custom data, expiring in
-				/// `valid_for`.
-				pub fn create(valid_for: Duration) -> JWTClaims<NoCustomClaims> {
-								let now = Some(Clock::now_since_epoch());
-								JWTClaims {
-												issued_at: now,
-												expires_at: Some(now.unwrap() + valid_for),
-												invalid_before: now,
-												audiences: None,
-												issuer: None,
-												jwt_id: None,
-												subject: None,
-												nonce: None,
-												custom: NoCustomClaims {},
-								}
-				}
-
-				/// Create a new set of claims, with custom data, expiring in `valid_for`.
-				pub fn with_custom_claims<CustomClaims: Serialize + DeserializeOwned>(
-								custom_claims: CustomClaims,
-								valid_for: Duration,
-				) -> JWTClaims<CustomClaims> {
-								let now = Some(Clock::now_since_epoch());
-								JWTClaims {
-												issued_at: now,
-												expires_at: Some(now.unwrap() + valid_for),
-												invalid_before: now,
-												audiences: None,
-												issuer: None,
-												jwt_id: None,
-												subject: None,
-												nonce: None,
-												custom: custom_claims,
-								}
-				}
-}
-
-#[cfg(test)]
-mod tests {
-				use super::*;
-
-				#[test]
-				fn should_set_standard_claims() {
-								let exp = Duration::from_mins(10);
-								let mut audiences = HashSet::new();
-								audiences.insert("audience1".to_string());
-								audiences.insert("audience2".to_string());
-								let claims = Claims::create(exp)
-												.with_audiences(audiences.clone())
-												.with_issuer("issuer")
-												.with_jwt_id("jwt_id")
-												.with_nonce("nonce")
-												.with_subject("subject");
-
-								assert_eq!(claims.audiences, Some(Audiences::AsSet(audiences)));
-								assert_eq!(claims.issuer, Some("issuer".to_owned()));
-								assert_eq!(claims.jwt_id, Some("jwt_id".to_owned()));
-								assert_eq!(claims.nonce, Some("nonce".to_owned()));
-								assert_eq!(claims.subject, Some("subject".to_owned()));
-				}
-
-				#[test]
-				fn parse_floating_point_unix_time() {
-								let claims: JWTClaims<()> = serde_json::from_str(r#"{"exp":1617757825.8}"#).unwrap();
-								assert_eq!(
-												claims.expires_at,
-												Some(UnixTimeStamp::from_secs(1617757825))
-								);
-				}
-
-				#[test]
-				fn should_tolerate_clock_drift() {
-								let exp = Duration::from_mins(1);
-								let claims = Claims::create(exp);
-								let mut options = VerificationOptions::default();
-
-								// Verifier clock is 2 minutes ahead of the token clock.
-								// The token is valid for 1 minute, with an extra tolerance of 1 minute.
-								// Verification should pass.
-								let drift = Duration::from_mins(2);
-								options.artificial_time = Some(claims.issued_at.unwrap() + drift);
-								options.time_tolerance = Some(Duration::from_mins(1));
-								claims.validate(&options).unwrap();
-
-								// Verifier clock is 2 minutes ahead of the token clock.
-								// The token is valid for 1 minute, with an extra tolerance of 1 minute.
-								// Verification must not pass.
-								let drift = Duration::from_mins(3);
-								options.artificial_time = Some(claims.issued_at.unwrap() + drift);
-								options.time_tolerance = Some(Duration::from_mins(1));
-								assert!(claims.validate(&options).is_err());
-
-								// Verifier clock is 2 minutes ahead of the token clock.
-								// The token is valid for 30 seconds, with an extra tolerance of 1 minute.
-								// Verification must not pass.
-								let drift = Duration::from_secs(30);
-								options.artificial_time = Some(claims.issued_at.unwrap() + drift);
-								options.time_tolerance = Some(Duration::from_mins(1));
-								claims.validate(&options).unwrap();
-
-								// Verifier clock is 2 minutes behind the token clock.
-								// The token is valid for 1 minute, so it is already expired.
-								// We have a tolerance of 1 minute.
-								// Verification must not pass.
-								let drift = Duration::from_mins(2);
-								options.artificial_time = Some(claims.issued_at.unwrap() - drift);
-								options.time_tolerance = Some(Duration::from_mins(1));
-								assert!(claims.validate(&options).is_err());
-
-								// Verifier clock is 2 minutes behind the token clock.
-								// The token is valid for 1 minute, so it is already expired.
-								// We have a tolerance of 2 minute.
-								// Verification should pass.
-								let drift = Duration::from_mins(2);
-								options.artificial_time = Some(claims.issued_at.unwrap() - drift);
-								options.time_tolerance = Some(Duration::from_mins(2));
-								claims.validate(&options).unwrap();
-				}
-}
