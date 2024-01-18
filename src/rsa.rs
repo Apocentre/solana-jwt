@@ -1,4 +1,4 @@
-use boring::{
+use superboring::{
   hash::MessageDigest, pkey::{PKey, Public},
   rsa::{Padding, Rsa}, sign::Verifier, bn::BigNum,
 };
